@@ -1,10 +1,9 @@
 name: Deploy Application
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -13,14 +12,68 @@ permissions:
 env:
   AWS_REGION: us-east-1
   APPLICATION_PORT: 5000
-- name: Deploy application container via SSM
-  run: |
-    aws ssm send-command \
-      --region $AWS_REGION \
-      --instance-ids i-0a14611370af5093f \
-      --document-name "AWS-RunShellScript" \
-      --parameters "commands=[
-        'sudo docker rm -f devsecops-app || true',
-        'sudo docker load -i /tmp/app-image.tar || true',
-        'sudo docker run -d --name devsecops-app -p 5000:5000 devsecops-app:${{ github.sha }}'
-      ]"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          cd application
+          docker build -t devsecops-app:${{ github.sha }} .
+
+      - name: Save image
+        run: docker save devsecops-app:${{ github.sha }} -o app-image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-image
+          path: app-image.tar
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Download image
+        uses: actions/download-artifact@v4
+        with:
+          name: app-image
+
+      - name: Upload image to S3
+        run: aws s3 cp app-image.tar s3://${{ secrets.DEPLOY_BUCKET }}/app-image.tar
+
+      - name: Get EC2 instance ID
+        id: ec2
+        run: |
+          aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=devsecops-app-fixed" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text > id.txt
+          echo "id=$(cat id.txt)" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids "${{ steps.ec2.outputs.id }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+              'sudo systemctl start docker || true',
+              'aws s3 cp s3://${{ secrets.DEPLOY_BUCKET }}/app-image.tar /tmp/app-image.tar',
+              'sudo docker load -i /tmp/app-image.tar',
+              'sudo docker rm -f devsecops-app || true',
+              'sudo docker run -d --name devsecops-app -p 5000:5000 devsecops-app:${{ github.sha }}',
+              'sleep 10',
+              'curl -f http://localhost:5000/health'
+            ]"
+
