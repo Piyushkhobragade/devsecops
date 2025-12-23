@@ -1,0 +1,26 @@
+name: Deploy Application
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  APPLICATION_PORT: 5000
+- name: Deploy application container via SSM
+  run: |
+    aws ssm send-command \
+      --region $AWS_REGION \
+      --instance-ids i-0a14611370af5093f \
+      --document-name "AWS-RunShellScript" \
+      --parameters "commands=[
+        'sudo docker rm -f devsecops-app || true',
+        'sudo docker load -i /tmp/app-image.tar || true',
+        'sudo docker run -d --name devsecops-app -p 5000:5000 devsecops-app:${{ github.sha }}'
+      ]"

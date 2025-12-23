@@ -1,0 +1,4 @@
+{
+  "Url": "https://token.actions.githubusercontent.com",
+  "ClientIDList": ["sts.amazonaws.com"]
+}
