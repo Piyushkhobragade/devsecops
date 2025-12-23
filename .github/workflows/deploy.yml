@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 🔑 AWS creds MUST come first
+      #  AWS creds MUST come first
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
