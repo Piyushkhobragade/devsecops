@@ -28,6 +28,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 🔑 AWS creds MUST come first
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
       - name: Build Docker image
         run: |
           cd application
@@ -40,15 +47,6 @@ jobs:
       - name: Upload image to S3
         run: |
           aws s3 cp app-image.tar s3://${{ env.DEPLOY_BUCKET }}/app-image.tar
-        env:
-          AWS_REGION: us-east-1
-        shell: bash
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
 
   deploy-application:
     needs: build-application
@@ -82,3 +80,4 @@ jobs:
       - name: Health check
         run: |
           curl -f http://34.194.123.19:5000/health
+
