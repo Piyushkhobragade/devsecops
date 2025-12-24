@@ -26,31 +26,26 @@ cd /opt/app
 # Placeholder file (application deployed later via CI/CD)
 echo "Instance ready for application deployment" > /opt/app/status.txt
 
-# Create CloudWatch Agent config directory
-mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
+#!/bin/bash
+set -e
 
-# Configure CloudWatch logs
-cat > /opt/aws/amazon-cloudwatch-agent/etc/config.json << 'CWCONFIG'
-{
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/application.log",
-            "log_group_name": "/aws/ec2/dev-devsecops-app",
-            "log_stream_name": "{instance_id}"
-          }
-        ]
-      }
-    }
-  }
-}
-CWCONFIG
+# Update system
+yum update -y
 
-# Start CloudWatch Agent
-/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-  -a fetch-config \
-  -m ec2 \
-  -s \
-  -c file:/opt/aws/amazon-cloudwatch-agent/etc/config.json
+# Install Docker
+yum install -y docker
+systemctl start docker
+systemctl enable docker
+usermod -aG docker ec2-user
+
+# Install Amazon SSM Agent
+yum install -y amazon-ssm-agent
+systemctl start amazon-ssm-agent
+systemctl enable amazon-ssm-agent
+
+# Allow port for application
+iptables -I INPUT -p tcp --dport ${application_port} -j ACCEPT
+
+# Remove nginx if exists
+yum remove -y nginx || true
+
