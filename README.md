@@ -26,6 +26,7 @@ The infrastructure is provisioned using **Terraform** and orchestrated by **GitH
 
 *Design Decision:* The architecture targets the us-east-1 region and utilizes a public subnet architecture to eliminate NAT Gateway costs, strictly adhering to AWS Free Tier limits while maintaining full operational visibility.
 
+
 ## **Secure Delivery Pipeline**
 
 The deployment pipeline (.github/workflows/deploy.yml) enforces a strict quality gate:
