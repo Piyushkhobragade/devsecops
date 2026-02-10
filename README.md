@@ -44,6 +44,7 @@ The deployment pipeline (.github/workflows/deploy.yml) enforces a strict quality
    * terraform apply updates the infrastructure state.  
    * Smoke tests validate the /health endpoint.
 
+
 ## **Security Controls**
 
 All controls are enforced automatically and fail the pipeline on violation — no manual approvals.
